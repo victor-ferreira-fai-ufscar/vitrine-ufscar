@@ -1,6 +1,8 @@
 [submodule "vitrine-backend"]
 	path = vitrine-backend
 	url = https://git.ufscar.br/equipe-deotic/vitrine/vitrine-backend.git
+	branch = staging
 [submodule "vitrine-frontend"]
 	path = vitrine-frontend
 	url = https://git.ufscar.br/equipe-deotic/vitrine/vitrine-frontend.git
+	branch = staging
