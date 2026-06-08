@@ -101,6 +101,18 @@ de cada pasta continua vindo do GitLab definido em `.gitmodules`.
 - Quem tiver acesso ao root e aos dois repositórios internos conseguirá clonar
   tudo com `--recurse-submodules`.
 
+## Automação de submódulos
+
+O workflow [`.github/workflows/atualizar-submodulos.yml`](.github/workflows/atualizar-submodulos.yml)
+roda diariamente (e sob demanda) sincronizando os ponteiros dos submódulos com a
+ponta da `staging` de cada repositório e commitando a mudança aqui, quando houver.
+
+Configuração única necessária (instruções detalhadas no topo do workflow):
+
+1. Criar um Access Token no GitLab (escopo `read_repository`, com acesso aos dois repos).
+2. Adicioná-lo como secret `GITLAB_TOKEN` em **Settings → Secrets and variables → Actions**.
+3. Habilitar **Read and write permissions** em **Settings → Actions → General → Workflow permissions**.
+
 ## Deploy
 
 - Deploy (AWS): <https://vitrine-staging.aws.ufscar.br/inicio>
