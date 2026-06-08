@@ -1,0 +1,78 @@
+name: Atualizar submódulos
+
+# Sincroniza os ponteiros dos submódulos (vitrine-backend e vitrine-frontend)
+# com a ponta da branch `staging` de cada repositório no GitLab da UFSCar.
+# Havendo mudança, commita o novo ponteiro de volta neste repositório (root).
+#
+# ──────────────── CONFIGURAÇÃO ÚNICA (necessária) ────────────────
+# Como os submódulos estão num GitLab privado, o runner precisa de um token:
+#
+#   1. No GitLab (git.ufscar.br), crie um Access Token com escopo `read_repository`
+#      e acesso aos dois repositórios (vitrine-backend e vitrine-frontend).
+#   2. Neste repositório no GitHub: Settings → Secrets and variables → Actions
+#      → New repository secret → nome: GITLAB_TOKEN, valor: o token gerado.
+#   3. Settings → Actions → General → Workflow permissions →
+#      marque "Read and write permissions" (para o job poder dar push de volta).
+# ─────────────────────────────────────────────────────────────────
+
+on:
+  schedule:
+    # Diariamente às 06:00 UTC (03:00 BRT). Sintaxe: minuto hora dia mês dia-semana.
+    - cron: '0 6 * * *'
+  workflow_dispatch: {} # permite disparo manual pela aba "Actions"
+
+# Concede ao GITHUB_TOKEN permissão de escrita para o push de volta.
+permissions:
+  contents: write
+
+# Evita que duas execuções rodem ao mesmo tempo e conflitem no push.
+concurrency:
+  group: atualizar-submodulos
+  cancel-in-progress: false
+
+env:
+  BRANCH: staging # branch do root onde os ponteiros são atualizados
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do root (sem submódulos)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH }}
+          submodules: false # os submódulos exigem o token do GitLab; tratados abaixo
+
+      - name: Autenticar no GitLab da UFSCar
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          if [ -z "$GITLAB_TOKEN" ]; then
+            echo "::error::Secret GITLAB_TOKEN não configurado. Veja as instruções no topo do workflow."
+            exit 1
+          fi
+          # Reescreve as URLs https://git.ufscar.br/... para incluir o token na autenticação.
+          git config --global url."https://oauth2:${GITLAB_TOKEN}@git.ufscar.br/".insteadOf "https://git.ufscar.br/"
+
+      - name: Atualizar submódulos para a ponta da staging
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --remote --recursive
+
+      - name: Commitar e enviar novos ponteiros (se houver mudança)
+        run: |
+          if git diff --quiet -- vitrine-backend vitrine-frontend; then
+            echo "Nenhuma atualização nos submódulos. Nada a fazer."
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add vitrine-backend vitrine-frontend
+          git commit \
+            -m "chore: atualiza ponteiros dos submódulos para a ponta da staging" \
+            -m "$(git submodule status)"
+          git push origin HEAD:${{ env.BRANCH }}
+
+          echo "Ponteiros atualizados e enviados para a branch ${BRANCH}."
